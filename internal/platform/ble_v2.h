@@ -26,6 +26,7 @@
 #include "internal/platform/implementation/ble_v2.h"
 #include "internal/platform/implementation/platform.h"
 #include "internal/platform/mutex.h"
+#include "internal/platform/uuid.h"
 
 namespace location {
 namespace nearby {
@@ -43,7 +44,7 @@ class GattServer final {
 
   // NOLINTNEXTLINE(google3-legacy-absl-backports)
   absl::optional<api::ble_v2::GattCharacteristic> CreateCharacteristic(
-      const std::string& service_uuid, const std::string& characteristic_uuid,
+      const Uuid& service_uuid, const Uuid& characteristic_uuid,
       const std::vector<api::ble_v2::GattCharacteristic::Permission>&
           permissions,
       const std::vector<api::ble_v2::GattCharacteristic::Property>&
@@ -82,14 +83,13 @@ class GattClient final {
       std::unique_ptr<api::ble_v2::GattClient> client_gatt_connection)
       : impl_(std::move(client_gatt_connection)) {}
 
-  bool DiscoverService(const std::string& service_uuid) {
+  bool DiscoverService(const Uuid& service_uuid) {
     return impl_->DiscoverService(service_uuid);
   }
 
-  // TODO(edwinwu): Change std::string to Uuid.
   // NOLINTNEXTLINE(google3-legacy-absl-backports)
   absl::optional<api::ble_v2::GattCharacteristic> GetCharacteristic(
-      const std::string& service_uuid, const std::string& characteristic_uuid) {
+      const Uuid& service_uuid, const Uuid& characteristic_uuid) {
     return impl_->GetCharacteristic(service_uuid, characteristic_uuid);
   }
 
@@ -158,7 +158,7 @@ class BleV2Medium final {
   bool StopAdvertising();
 
   // Returns true once the BLE scan has been initiated.
-  bool StartScanning(const std::string& service_uuid,
+  bool StartScanning(const Uuid& service_uuid,
                      api::ble_v2::TxPowerLevel tx_power_level,
                      ScanCallback callback);
   bool StopScanning();

@@ -23,6 +23,7 @@
 #include "internal/platform/byte_array.h"
 #include "internal/platform/implementation/ble_v2.h"
 #include "internal/platform/implementation/g3/bluetooth_adapter.h"
+#include "internal/platform/uuid.h"
 
 namespace location {
 namespace nearby {
@@ -42,7 +43,7 @@ class BleV2Medium : public api::ble_v2::BleMedium {
       ABSL_LOCKS_EXCLUDED(mutex_);
   bool StopAdvertising() override ABSL_LOCKS_EXCLUDED(mutex_);
 
-  bool StartScanning(const std::string& service_uuid,
+  bool StartScanning(const Uuid& service_uuid,
                      api::ble_v2::TxPowerLevel tx_power_level,
                      ScanCallback callback) override
       ABSL_LOCKS_EXCLUDED(mutex_);
@@ -74,7 +75,7 @@ class BleV2Medium : public api::ble_v2::BleMedium {
   class GattServer : public api::ble_v2::GattServer {
    public:
     std::optional<api::ble_v2::GattCharacteristic> CreateCharacteristic(
-        absl::string_view service_uuid, absl::string_view characteristic_uuid,
+        const Uuid& service_uuid, const Uuid& characteristic_uuid,
         const std::vector<api::ble_v2::GattCharacteristic::Permission>&
             permissions,
         const std::vector<api::ble_v2::GattCharacteristic::Property>&
@@ -90,11 +91,10 @@ class BleV2Medium : public api::ble_v2::BleMedium {
   // A concrete implemenation for GattClient.
   class GattClient : public api::ble_v2::GattClient {
    public:
-    bool DiscoverService(const std::string& service_uuid) override;
+    bool DiscoverService(const Uuid& service_uuid) override;
 
     std::optional<api::ble_v2::GattCharacteristic> GetCharacteristic(
-        absl::string_view service_uuid,
-        absl::string_view characteristic_uuid) override;
+        const Uuid& service_uuid, const Uuid& characteristic_uuid) override;
 
     std::optional<ByteArray> ReadCharacteristic(
         const api::ble_v2::GattCharacteristic& characteristic) override;

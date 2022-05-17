@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CORE_INTERNAL_MEDIUMS_UUID_H_
-#define CORE_INTERNAL_MEDIUMS_UUID_H_
+#ifndef THIRD_PARTY_NEARBY_INTERNAL_PLATFORM_UUID_H_
+#define THIRD_PARTY_NEARBY_INTERNAL_PLATFORM_UUID_H_
 
 #include <cstdint>
 #include <string>
@@ -22,7 +22,6 @@
 
 namespace location {
 namespace nearby {
-namespace connections {
 
 // A type 3 name-based
 // (https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based))
@@ -31,27 +30,46 @@ namespace connections {
 // https://developer.android.com/reference/java/util/UUID.html
 class Uuid final {
  public:
-  Uuid() : Uuid("uuid") {}
+  Uuid() = default;
   explicit Uuid(absl::string_view data);
-  Uuid(std::uint64_t most_sig_bits, std::uint64_t least_sig_bits);
-  Uuid(const Uuid&) = default;
-  Uuid& operator=(const Uuid&) = default;
-  Uuid(Uuid&&) = default;
-  Uuid& operator=(Uuid&&) = default;
-  ~Uuid() = default;
+  constexpr Uuid(std::uint64_t most_sig_bits, std::uint64_t least_sig_bits)
+      : most_sig_bits_(most_sig_bits), least_sig_bits_(least_sig_bits) {}
+
+  std::string data() const;
 
   // Returns the canonical textual representation
   // (https://en.wikipedia.org/wiki/Universally_unique_identifier#Format) of the
   // UUID.
   explicit operator std::string() const;
-  std::string data() const { return data_; }
+
+  // Get ABCD fom xxxxABCD-xxxx-xxxx-xxxx-xxxxxxxxxxxxxxxx
+  //
+  // This is needed because Android only support UUID 16 bits in service data
+  // section in advertising data
+  std::string Get16BitAsString() const;
+
+  std::uint64_t GetMostSigBits() const { return most_sig_bits_; }
+  std::uint64_t GetLeastSigBits() const { return least_sig_bits_; }
+
+  // Hashable
+  bool operator==(const Uuid &rhs) const;
+  template <typename H>
+  friend H AbslHashValue(H h, const Uuid &b) {
+    return H::combine(std::move(h), b.most_sig_bits_, b.least_sig_bits_);
+  }
+
+  bool IsEmpty() const {
+    return most_sig_bits_ == 0 && least_sig_bits_ == 0;
+  }
 
  private:
-  std::string data_;
+  std::string ToCanonicalString(const std::string& data) const;
+
+  std::uint64_t most_sig_bits_{0};
+  std::uint64_t least_sig_bits_{0};
 };
 
-}  // namespace connections
 }  // namespace nearby
 }  // namespace location
 
-#endif  // CORE_INTERNAL_MEDIUMS_UUID_H_
+#endif  // THIRD_PARTY_NEARBY_INTERNAL_PLATFORM_UUID_H_

@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "absl/strings/escaping.h"
+#include "absl/types/optional.h"
 #include "connections/implementation/mediums/ble_v2/ble_advertisement.h"
 #include "connections/implementation/mediums/ble_v2/ble_advertisement_header.h"
 #include "connections/implementation/mediums/ble_v2/ble_utils.h"
@@ -179,7 +180,8 @@ bool BleV2::StopAdvertising(const std::string& service_id) {
       for (const auto& characteristic : hosted_gatt_characteristics_) {
         if (!gatt_server_->UpdateCharacteristic(characteristic, empty_value)) {
           NEARBY_LOGS(ERROR)
-              << "Failed to clear characteristic uuid=" << characteristic.uuid
+              << "Failed to clear characteristic uuid="
+              << std::string(characteristic.uuid)
               << " after stopping BLE advertisement for service_id="
               << service_id;
         }
@@ -246,7 +248,7 @@ bool BleV2::StartScanning(const std::string& service_id, PowerLevel power_level,
   // Start to track the advertisement found for specific `service_id`.
   discovered_peripheral_tracker_.StartTracking(
       service_id, std::move(callback),
-      std::string(mediums::bleutils::kCopresenceServiceUuid));
+      mediums::bleutils::kCopresenceServiceUuid);
 
   // Check if scan has been activated, if yes, no need to notify client
   // to scan again.
@@ -261,7 +263,7 @@ bool BleV2::StartScanning(const std::string& service_id, PowerLevel power_level,
   // TODO(b/213835576): We should re-start scanning once the power level is
   // changed.
   if (!medium_.StartScanning(
-          std::string(mediums::bleutils::kCopresenceServiceUuid),
+          mediums::bleutils::kCopresenceServiceUuid,
           PowerLevelToTxPowerLevel(power_level),
           {
               .advertisement_found_cb =
@@ -398,11 +400,18 @@ bool BleV2::GenerateAdvertisementCharacteristic(
   std::vector<GattCharacteristic::Property> properties{
       GattCharacteristic::Property::kRead};
 
+  // NOLINTNEXTLINE(google3-legacy-absl-backports)
+  absl::optional<Uuid> advertiement_uuid =
+      mediums::bleutils::GenerateAdvertisementUuid(slot);
+  if (!advertiement_uuid.has_value()) {
+    NEARBY_LOGS(INFO) << "Unable to generate advertisement uuid.";
+    return false;
+  }
+  // NOLINTNEXTLINE(google3-legacy-absl-backports)
   absl::optional<GattCharacteristic> gatt_characteristic =
       gatt_server.CreateCharacteristic(
-          std::string(mediums::bleutils::kCopresenceServiceUuid),
-          mediums::bleutils::GenerateAdvertisementUuid(slot), permissions,
-          properties);
+          mediums::bleutils::kCopresenceServiceUuid, *advertiement_uuid,
+          permissions, properties);
   if (!gatt_characteristic.has_value()) {
     NEARBY_LOGS(INFO) << "Unable to create and add a characterstic to the gatt "
                          "server for the advertisement.";
@@ -452,9 +461,8 @@ void BleV2::ProcessFetchGattAdvertisementsRequest(
   }
 
   // Always use kCopresenceServiceUuid for service uuid.
-  std::string service_uuid =
-      std::string(mediums::bleutils::kCopresenceServiceUuid);
-  if (!gatt_client->DiscoverService(service_uuid)) {
+  if (!gatt_client->DiscoverService(
+          mediums::bleutils::kCopresenceServiceUuid)) {
     NEARBY_LOGS(WARNING) << "GATT client can't discover service.";
     advertisement_read_result.RecordLastReadStatus(false);
     return;
@@ -471,9 +479,14 @@ void BleV2::ProcessFetchGattAdvertisementsRequest(
     // the characteristic doesn't exist, we shouldn't count the fetch as a
     // failure because there's nothing we could've done about a
     // non-existed characteristic.
+    // NOLINTNEXTLINE(google3-legacy-absl-backports)
+    absl::optional<Uuid> advertiement_uuid =
+        mediums::bleutils::GenerateAdvertisementUuid(slot);
+    if (!advertiement_uuid.has_value()) {
+      continue;
+    }
     auto gatt_characteristic = gatt_client->GetCharacteristic(
-        std::string(mediums::bleutils::kCopresenceServiceUuid),
-        mediums::bleutils::GenerateAdvertisementUuid(slot));
+        mediums::bleutils::kCopresenceServiceUuid, *advertiement_uuid);
     if (!gatt_characteristic.has_value()) {
       continue;
     }
@@ -570,8 +583,7 @@ bool BleV2::StartFastAdvertisingLocked(
   ByteArray medium_advertisement_bytes = ByteArray(medium_advertisement);
   advertising_data.is_extended_advertisement = false;
   advertising_data.service_data.insert(
-      {std::string(mediums::bleutils::kCopresenceServiceUuid),
-       medium_advertisement_bytes});
+      {mediums::bleutils::kCopresenceServiceUuid, medium_advertisement_bytes});
 
   // Finally, start the fast advertising operation.
   if (!medium_.StartAdvertising(
@@ -602,7 +614,7 @@ bool BleV2::StartRegularAdvertisingLocked(
   if (medium_.IsExtendedAdvertisementsAvailable()) {
     advertising_data.is_extended_advertisement = true;
     advertising_data.service_data.insert(
-        {std::string(mediums::bleutils::kCopresenceServiceUuid),
+        {mediums::bleutils::kCopresenceServiceUuid,
          medium_advertisement_bytes});
 
     // Start the extended regular advertising operation.
@@ -685,8 +697,7 @@ bool BleV2::StartGattAdvertisingLocked(
   }
 
   advertising_data.service_data.insert(
-      {std::string(mediums::bleutils::kCopresenceServiceUuid),
-       advertisement_header_bytes});
+      {mediums::bleutils::kCopresenceServiceUuid, advertisement_header_bytes});
 
   // Finally, start the regular advertising operation.
   if (!medium_.StartAdvertising(
