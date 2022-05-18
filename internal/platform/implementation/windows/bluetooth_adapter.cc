@@ -173,42 +173,42 @@ std::string BluetoothAdapter::GetName() const {
         &local_name_size);  // A pointer to a variable that specifies the
                             // size of the buffer pointed to by the lpData
                             // parameter, in bytes.
-    if (status != ERROR_SUCCESS) {
+    if (status == ERROR_SUCCESS) {
       NEARBY_LOGS(ERROR)
           << __func__
           << ": Failed to get the required size of the local name buffer";
-      return {};
-    }
-    unsigned char *local_name = new unsigned char[local_name_size];
-    memset(local_name, '\0', local_name_size);
+    } else {
+      unsigned char *local_name = new unsigned char[local_name_size];
+      memset(local_name, '\0', local_name_size);
 
-    status = RegQueryValueExA(
-        hKey,                               // A handle to an open registry key.
-        BLUETOOTH_RADIO_REGISTRY_NAME_KEY,  // The name of the registry
-                                            // value.
-        nullptr,            // This parameter is reserved and must be NULL.
-        &value_type,        // A pointer to a variable that receives a code
-                            // indicating the type of data stored in the
-                            // specified value.
-        local_name,         // A pointer to a buffer that
-                            // receives the value's data.
-        &local_name_size);  // A pointer to a variable that specifies the
-                            // size of the buffer pointed to by the lpData
-                            // parameter, in bytes.
+      status = RegQueryValueExA(
+          hKey,  // A handle to an open registry key.
+          BLUETOOTH_RADIO_REGISTRY_NAME_KEY,  // The name of the registry
+                                              // value.
+          nullptr,            // This parameter is reserved and must be NULL.
+          &value_type,        // A pointer to a variable that receives a code
+                              // indicating the type of data stored in the
+                              // specified value.
+          local_name,         // A pointer to a buffer that
+                              // receives the value's data.
+          &local_name_size);  // A pointer to a variable that specifies the
+                              // size of the buffer pointed to by the lpData
+                              // parameter, in bytes.
 
-    // Closes a handle to the specified registry key.
-    // https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regclosekey
-    RegCloseKey(hKey);
+      // Closes a handle to the specified registry key.
+      // https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regclosekey
+      RegCloseKey(hKey);
 
-    if (status == ERROR_SUCCESS) {
-      std::string local_name_return = std::string(
-          local_name, local_name + local_name_size / sizeof local_name[0]);
+      if (status == ERROR_SUCCESS) {
+        std::string local_name_return = std::string(
+            local_name, local_name + local_name_size / sizeof local_name[0]);
 
+        delete[] local_name;
+
+        return local_name_return;
+      }
       delete[] local_name;
-
-      return local_name_return;
     }
-    delete[] local_name;
   }
 
   // The local name is not in the registry, return the machine name
@@ -222,7 +222,7 @@ std::string BluetoothAdapter::GetName() const {
     return {};
   }
 
-  local_name.reserve(name_size);
+  local_name.resize(name_size);
 
   // Retrieves the NetBIOS name of the local computer.
   // https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcomputernamea
